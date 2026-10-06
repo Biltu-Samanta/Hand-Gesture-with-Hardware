@@ -342,14 +342,19 @@ body::before {
         inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
-#webcam {
+#webcam,
+#esp32Stream {
     position: absolute;
     top: 0; left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
-    opacity: 0;
     pointer-events: none;
+}
+
+#webcam,
+#esp32Stream {
+    opacity: 0;
 }
 
 #outputCanvas {
@@ -744,4 +749,283 @@ body::before {
     .camera-container {
         aspect-ratio: 1/1;
     }
+}
+
+/* ─── ESP32-CAM Panel ────────────────────────────────────────────────────────── */
+
+.esp32-panel {
+    margin-top: 0;
+    padding: var(--space-md);
+    animation: fadeInUp 0.3s ease both;
+}
+
+.esp32-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-sm);
+}
+
+.esp32-panel-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.esp32-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+.esp32-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    flex-shrink: 0;
+    transition: background var(--transition-fast);
+}
+
+.esp32-status-dot--idle       { background: var(--text-muted); }
+.esp32-status-dot--connecting { background: var(--warning); animation: pulse-dot 1s ease infinite; }
+.esp32-status-dot--connected  { background: var(--success); }
+.esp32-status-dot--error      { background: var(--error); }
+
+.esp32-status-text {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.esp32-input-row {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-end;
+}
+
+.esp32-url-group {
+    flex: 1;
+}
+
+.esp32-url-input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-primary);
+    font-size: 0.85rem;
+    padding: var(--space-xs) var(--space-sm);
+    outline: none;
+    transition: all var(--transition-fast);
+}
+
+.esp32-url-input::placeholder {
+    color: var(--text-muted);
+}
+
+.esp32-url-input:focus {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(0, 70, 67, 0.12);
+    background: rgba(255, 255, 255, 0.75);
+}
+
+.esp32-connect-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-size: 0.85rem;
+    padding: var(--space-xs) var(--space-md);
+}
+
+.esp32-hint {
+    margin-top: var(--space-sm);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+    .esp32-input-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .esp32-connect-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    .esp32-status-text {
+        max-width: 140px;
+    }
+}
+
+/* ─── ESP32 Mode Row & Toggles ─────────────────────────────────────────────── */
+
+.esp32-mode-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--space-sm);
+    padding-top: var(--space-xs);
+    border-top: 1px solid rgba(0, 70, 67, 0.08);
+    gap: var(--space-xs);
+}
+
+.mode-toggles {
+    display: flex;
+    background: rgba(0, 70, 67, 0.06);
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    gap: 2px;
+}
+
+.btn-mode {
+    border: none;
+    background: transparent;
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-mode.active {
+    background: var(--accent-primary);
+    color: #F0EDE5;
+    box-shadow: 0 1px 4px rgba(0, 70, 67, 0.2);
+}
+
+.btn-diag-toggle {
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 255, 255, 0.5);
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.btn-diag-toggle:hover {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: var(--accent-primary);
+}
+
+/* ─── Real-Time Diagnostics Overlay ────────────────────────────────────────── */
+
+.esp32-diag-overlay {
+    margin-top: var(--space-sm);
+    background: rgba(0, 70, 67, 0.04);
+    border: 1px solid rgba(0, 70, 67, 0.12);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm);
+    animation: fadeInUp 0.25s ease both;
+}
+
+.diag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-xs);
+    border-bottom: 1px solid rgba(0, 70, 67, 0.08);
+    padding-bottom: 4px;
+}
+
+.diag-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.diag-badge {
+    background: rgba(0, 109, 104, 0.12);
+    color: var(--color-teal-light);
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.diag-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.diag-metric {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 70, 67, 0.06);
+    border-radius: 6px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+}
+
+.diag-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.diag-val {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.highlight-drop {
+    color: var(--warning);
+}
+
+.diag-actions {
+    margin-top: var(--space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.btn-benchmark {
+    border: none;
+    background: linear-gradient(135deg, #004643, #006D68);
+    color: #F0EDE5;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+}
+
+.btn-benchmark:hover {
+    opacity: 0.9;
+}
+
+.btn-benchmark:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.benchmark-result {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--glass-border);
+    border-radius: 6px;
+    padding: 8px;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    font-family: monospace;
+    white-space: pre-wrap;
 }

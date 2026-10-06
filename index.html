@@ -25,6 +25,13 @@
         </div>
         <div class="header-right">
             <div class="control-group">
+                <label for="cameraSourceSelect" class="control-label">Camera Source</label>
+                <select id="cameraSourceSelect" class="select-control" title="Select camera source">
+                    <option value="local">Local Webcam</option>
+                    <option value="esp32">ESP32-CAM</option>
+                </select>
+            </div>
+            <div class="control-group">
                 <label for="languageSelect" class="control-label">Language</label>
                 <select id="languageSelect" class="select-control" title="Select language">
                     <option value="en">English</option>
@@ -44,6 +51,7 @@
 
             <div class="camera-container" id="cameraContainer">
                 <video id="webcam" autoplay playsinline muted></video>
+                <img id="esp32Stream" crossorigin="anonymous" alt="ESP32-CAM Stream" style="display:none;" />
                 <canvas id="outputCanvas"></canvas>
 
                 <div class="camera-overlay" id="cameraOverlay">
@@ -65,6 +73,95 @@
                 <button id="stopBtn" class="btn btn-secondary" disabled>
                     <span>Stop</span>
                 </button>
+            </div>
+
+            <!-- ESP32-CAM connection panel (hidden by default) -->
+            <div class="esp32-panel glass-card" id="esp32Panel" style="display:none;">
+                <div class="esp32-panel-header">
+                    <span class="esp32-panel-title">ESP32-CAM</span>
+                    <div class="esp32-status" id="esp32Status">
+                        <span class="esp32-status-dot esp32-status-dot--idle" id="esp32StatusDot"></span>
+                        <span class="esp32-status-text" id="esp32StatusText">Not connected</span>
+                    </div>
+                </div>
+                <div class="esp32-input-row">
+                    <div class="control-group esp32-url-group">
+                        <label for="esp32UrlInput" class="control-label">IP Address</label>
+                        <input
+                            id="esp32UrlInput"
+                            type="text"
+                            class="esp32-url-input"
+                            placeholder="http://192.168.1.100"
+                            autocomplete="off"
+                            spellcheck="false"
+                        />
+                    </div>
+                    <button id="esp32ConnectBtn" class="btn btn-primary esp32-connect-btn">Connect</button>
+                </div>
+                <p class="esp32-hint">Enter your ESP32-CAM&apos;s IP address (shown in Serial Monitor at 115200 baud).</p>
+
+                <!-- Stream Mode Selector (Requirement 15: Stream-Only Mode vs AI Tracking) -->
+                <div class="esp32-mode-row">
+                    <div class="mode-toggles">
+                        <button type="button" id="modeAiBtn" class="btn-mode active" title="AI Gesture Tracking with MediaPipe">AI Tracking</button>
+                        <button type="button" id="modeStreamOnlyBtn" class="btn-mode" title="Pure stream display without MediaPipe">Stream-Only Test</button>
+                    </div>
+                    <button type="button" id="debugToggleBtn" class="btn-diag-toggle" title="Toggle Real-Time Diagnostics Overlay">Diagnostics</button>
+                </div>
+
+                <!-- Real-Time Diagnostics Overlay (Requirement 14 & 16) -->
+                <div class="esp32-diag-overlay" id="debugPanel" style="display:none;">
+                    <div class="diag-header">
+                        <span class="diag-title">ESP32-CAM Real-Time Diagnostics</span>
+                        <span class="diag-badge" id="dbgSource">MJPEG</span>
+                    </div>
+                    <div class="diag-grid">
+                        <div class="diag-metric">
+                            <span class="diag-label">Connection</span>
+                            <span class="diag-val" id="dbgConn">Idle</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">RSSI</span>
+                            <span class="diag-val" id="dbgRssi">-- dBm</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">Stream FPS</span>
+                            <span class="diag-val" id="dbgFps">-- FPS</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">JPEG Size</span>
+                            <span class="diag-val" id="dbgJpegKb">-- KB</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">Received</span>
+                            <span class="diag-val" id="dbgReceived">0</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">Processed</span>
+                            <span class="diag-val" id="dbgProcessed">0</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">Dropped</span>
+                            <span class="diag-val highlight-drop" id="dbgDropped">0</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">MediaPipe FPS</span>
+                            <span class="diag-val" id="dbgMpFps">-- FPS</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">MP Duration</span>
+                            <span class="diag-val" id="dbgMpTime">-- ms</span>
+                        </div>
+                        <div class="diag-metric">
+                            <span class="diag-label">Latency</span>
+                            <span class="diag-val" id="dbgLatency">-- ms</span>
+                        </div>
+                    </div>
+                    <div class="diag-actions">
+                        <button type="button" id="runBenchmarkBtn" class="btn-benchmark">Run FPS Benchmark (5s)</button>
+                        <div id="benchmarkResult" class="benchmark-result" style="display:none;"></div>
+                    </div>
+                </div>
             </div>
         </section>
 

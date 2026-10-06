@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ESP32-CAM Stream Diagnostic — Isolated Layer Test</title>
+    <style>
+        :root {
+            --bg: #0f141c;
+            --surface: #18202c;
+            --border: #2a3648;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #2f81f7;
+            --success: #238636;
+            --warning: #d29922;
+            --danger: #da3633;
+            --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .header {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        h1 { font-size: 1.4rem; font-weight: 700; color: #fff; margin-bottom: 4px; }
+        .subtitle { font-size: 0.85rem; color: var(--muted); }
+        .badge {
+            display: inline-block;
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            background: #21262d;
+            border: 1px solid var(--border);
+        }
+        .badge-idle    { color: var(--muted); }
+        .badge-active  { color: #3fb950; border-color: rgba(63, 185, 80, 0.4); }
+        .badge-error   { color: #f85149; border-color: rgba(248, 81, 73, 0.4); }
+
+        .controls-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        .input-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 280px;
+        }
+        label { font-size: 0.85rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+        input[type="text"] {
+            flex: 1;
+            padding: 8px 12px;
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: #fff;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            outline: none;
+        }
+        input[type="text"]:focus { border-color: var(--accent); }
+        button {
+            padding: 8px 16px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary   { background: var(--accent); color: #fff; }
+        .btn-secondary { background: #30363d; color: var(--text); }
+        .btn-snapshot  { background: #8957e5; color: #fff; }
+        .btn-stop      { background: var(--danger); color: #fff; }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 18px;
+        }
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .view-card, .stats-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .card-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-wrapper {
+            position: relative;
+            background: #000;
+            border-radius: 6px;
+            overflow: hidden;
+            min-height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #000;
+        }
+        .stream-img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        .no-stream-msg {
+            color: var(--muted);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .stat-box {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--muted);
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .stat-value {
+            font-family: var(--font-mono);
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .stat-value.spike { color: var(--danger); }
+        .stat-value.good  { color: #3fb950; }
+
+        .intervals-panel {
+            margin-top: 14px;
+        }
+        .intervals-log {
+            background: #0d1117;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            height: 240px;
+            overflow-y: auto;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+        .log-line {
+            display: flex;
+            justify-content: space-between;
+            padding: 1px 4px;
+            border-bottom: 1px solid #161b22;
+        }
+        .log-line.spike {
+            background: rgba(218, 54, 51, 0.15);
+            color: #ff7b72;
+            font-weight: 700;
+        }
+        .log-line.normal { color: #8b949e; }
+        .log-line.fast   { color: #7ee787; }
+
+        .notice-box {
+            margin-top: 14px;
+            padding: 10px 14px;
+            background: #161b22;
+            border-left: 3px solid var(--accent);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            line-height: 1.5;
+            color: var(--muted);
+        }
+        .notice-box strong { color: var(--text); }
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <h1>ESP32-CAM Isolated Layer Diagnostics</h1>
+        <p class="subtitle">Direct stream arrival timer. ZERO MediaPipe. ZERO canvas processing. ZERO audio. Pure layer-by-layer transport measurement.</p>
+    </header>
+
+    <div class="controls-card">
+        <div class="input-group">
+            <label for="espUrl">ESP32 Base URL:</label>
+            <input type="text" id="espUrl" value="http://192.168.1.100" placeholder="http://192.168.x.x" />
+        </div>
+        <button id="btnConnectStream" class="btn-primary">Connect /stream (MJPEG)</button>
+        <button id="btnTestCapture" class="btn-snapshot">Test /capture (10 Snapshots)</button>
+        <button id="btnLayer1Test" class="btn-secondary">Test Layer 1 (100-Frame Capture Benchmark)</button>
+        <button id="btnStop" class="btn-stop" disabled>Stop</button>
+        <span class="badge badge-idle" id="statusBadge">IDLE</span>
+    </div>
+
+    <div class="main-grid">
+        <!-- Live Video Display -->
+        <div class="view-card">
+            <div class="card-title">
+                <span>Raw Camera Stream Display</span>
+                <span id="resolutionBadge" style="font-size:0.75rem; text-transform:none;">Resolution: --</span>
+            </div>
+            <div class="video-wrapper">
+                <img id="streamDisplay" class="stream-img" style="display:none;" alt="ESP32 Stream" />
+                <div id="noStreamMsg" class="no-stream-msg">
+                    Stream is stopped.<br />Enter your ESP32-CAM IP and click <strong>Connect /stream</strong> to start.
+                </div>
+            </div>
+            <div class="notice-box">
+                <strong>Diagnostic Rule:</strong> If THIS video display freezes or shows "frame → freeze → frame", the problem exists entirely in <strong>Layer 1–4 (Camera / JPEG / Wi-Fi / HTTP server)</strong> and MediaPipe is 100% innocent.
+            </div>
+        </div>
+
+        <!-- Real-Time Frame Interval Telemetry -->
+        <div class="stats-card">
+            <div class="card-title">
+                <span>Frame Interval Telemetry</span>
+                <button id="btnClearLog" style="background:none; border:none; color:var(--muted); font-size:0.7rem; cursor:pointer;">Clear Log</button>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-label">Received FPS</div>
+                    <div class="stat-value" id="valFps">0.0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Last Delta (Time since prev)</div>
+                    <div class="stat-value" id="valLastDelta">-- ms</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Avg Interval (Rolling 30)</div>
+                    <div class="stat-value" id="valAvgDelta">-- ms</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Max Spike / Freeze</div>
+                    <div class="stat-value" id="valMaxDelta">-- ms</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Total Frames</div>
+                    <div class="stat-value" id="valTotalFrames">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Freezes (&gt;500ms)</div>
+                    <div class="stat-value" id="valFreezeCount">0</div>
+                </div>
+            </div>
+
+            <div class="intervals-panel">
+                <div class="card-title" style="margin-bottom:6px;">
+                    <span>Frame Delta History</span>
+                    <span id="logCountLabel" style="font-size:0.7rem; font-weight:normal;">0 entries</span>
+                </div>
+                <div class="intervals-log" id="intervalsLog">
+                    <!-- Lines appended here dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ─── State ────────────────────────────────────────────────────────────
+        let isStreaming       = false;
+        let streamAbortCtrl   = null;
+        let lastFrameTime     = 0;
+        let frameCount        = 0;
+        let freezeCount       = 0;
+        let fpsWindowCount    = 0;
+        let lastFpsWindowTime = performance.now();
+        let rollingDeltas     = [];
+        let maxDeltaSeen      = 0;
+
+        // ─── DOM Elements ─────────────────────────────────────────────────────
+        const espUrlInput      = document.getElementById("espUrl");
+        const btnConnectStream = document.getElementById("btnConnectStream");
+        const btnTestCapture   = document.getElementById("btnTestCapture");
+        const btnLayer1Test    = document.getElementById("btnLayer1Test");
+        const btnStop          = document.getElementById("btnStop");
+        const statusBadge      = document.getElementById("statusBadge");
+        const streamDisplay    = document.getElementById("streamDisplay");
+        const noStreamMsg      = document.getElementById("noStreamMsg");
+        const resolutionBadge  = document.getElementById("resolutionBadge");
+
+        const valFps           = document.getElementById("valFps");
+        const valLastDelta     = document.getElementById("valLastDelta");
+        const valAvgDelta      = document.getElementById("valAvgDelta");
+        const valMaxDelta      = document.getElementById("valMaxDelta");
+        const valTotalFrames   = document.getElementById("valTotalFrames");
+        const valFreezeCount   = document.getElementById("valFreezeCount");
+        const intervalsLog     = document.getElementById("intervalsLog");
+        const logCountLabel    = document.getElementById("logCountLabel");
+        const btnClearLog      = document.getElementById("btnClearLog");
+
+        // ─── Helpers ──────────────────────────────────────────────────────────
+        function setStatus(text, badgeClass) {
+            statusBadge.textContent = text;
+            statusBadge.className   = `badge ${badgeClass}`;
+        }
+
+        function cleanUrl(raw) {
+            let u = raw.trim();
+            if (!/^https?:\/\//i.test(u)) u = "http://" + u;
+            return u.replace(/\/+$/, "");
+        }
+
+        function resetStats() {
+            frameCount        = 0;
+            freezeCount       = 0;
+            fpsWindowCount    = 0;
+            maxDeltaSeen      = 0;
+            lastFrameTime     = 0;
+            rollingDeltas     = [];
+            lastFpsWindowTime = performance.now();
+
+            valFps.textContent         = "0.0";
+            valLastDelta.textContent   = "-- ms";
+            valAvgDelta.textContent    = "-- ms";
+            valMaxDelta.textContent    = "-- ms";
+            valTotalFrames.textContent = "0";
+            valFreezeCount.textContent = "0";
+        }
+
+        function logInterval(frameNum, deltaMs, sizeBytes = 0) {
+            const isSpike = deltaMs >= 500;
+            const isSlow  = deltaMs >= 150 && !isSpike;
+
+            const line = document.createElement("div");
+            line.className = `log-line ${isSpike ? 'spike' : isSlow ? 'normal' : 'fast'}`;
+
+            const timeStr = new Date().toTimeString().split(" ")[0] + "." + String(Date.now() % 1000).padStart(3, "0");
+            const sizeStr = sizeBytes > 0 ? ` (${Math.round(sizeBytes / 1024)} KB)` : "";
+
+            line.innerHTML = `
+                <span>#${frameNum} [${timeStr}]${sizeStr}</span>
+                <span>${deltaMs} ms ${isSpike ? '⚠️ FREEZE' : ''}</span>
+            `;
+
+            intervalsLog.appendChild(line);
+            intervalsLog.scrollTop = intervalsLog.scrollHeight;
+            logCountLabel.textContent = `${frameCount} entries`;
+        }
+
+        // ─── FPS Ticker (1 second) ────────────────────────────────────────────
+        setInterval(() => {
+            if (!isStreaming) return;
+            const now = performance.now();
+            const elapsedSec = (now - lastFpsWindowTime) / 1000;
+            if (elapsedSec >= 1.0) {
+                const fps = (fpsWindowCount / elapsedSec).toFixed(1);
+                valFps.textContent = fps;
+                fpsWindowCount = 0;
+                lastFpsWindowTime = now;
+            }
+        }, 500);
+
+        // ═════════════════════════════════════════════════════════════════════
+        // TEST MODE 1: Native MJPEG Stream Reading via <img>
+        // Eliminates fetch() socket aborts and measures real arrival intervals
+        // ═════════════════════════════════════════════════════════════════════
+        btnConnectStream.addEventListener("click", () => {
+            stopAll();
+            const base = cleanUrl(espUrlInput.value);
+            const streamUrl = `${base}/stream`;
+
+            resetStats();
+            setStatus("CONNECTING...", "badge-active");
+            btnConnectStream.disabled = true;
+            btnTestCapture.disabled   = true;
+            btnStop.disabled          = false;
+
+            noStreamMsg.style.display   = "none";
+            streamDisplay.style.display = "block";
+            isStreaming = true;
+
+            streamDisplay.onload = () => {
+                const now = performance.now();
+                frameCount++;
+                fpsWindowCount++;
+                valTotalFrames.textContent = frameCount;
+
+                let delta = 0;
+                if (lastFrameTime > 0) {
+                    delta = Math.round(now - lastFrameTime);
+                    valLastDelta.textContent = `${delta} ms`;
+
+                    if (delta > maxDeltaSeen) {
+                        maxDeltaSeen = delta;
+                        valMaxDelta.textContent = `${maxDeltaSeen} ms`;
+                    }
+                    if (delta >= 500) {
+                        freezeCount++;
+                        valFreezeCount.textContent = freezeCount;
+                        valLastDelta.className = "stat-value spike";
+                    } else {
+                        valLastDelta.className = "stat-value good";
+                    }
+
+                    rollingDeltas.push(delta);
+                    if (rollingDeltas.length > 30) rollingDeltas.shift();
+                    const avg = Math.round(rollingDeltas.reduce((a, b) => a + b, 0) / rollingDeltas.length);
+                    valAvgDelta.textContent = `${avg} ms`;
+
+                    logInterval(frameCount, delta, 5000);
+                } else {
+                    logInterval(frameCount, 0, 5000);
+                }
+                lastFrameTime = now;
+
+                if (streamDisplay.naturalWidth) {
+                    resolutionBadge.textContent = `${streamDisplay.naturalWidth} × ${streamDisplay.naturalHeight}`;
+                }
+                setStatus("STREAM ACTIVE (Native <img>)", "badge-active");
+            };
+
+            streamDisplay.onerror = () => {
+                setStatus("ERROR: Stream failed to load. Check IP/Wi-Fi.", "badge-error");
+                stopAll(true);
+            };
+
+            streamDisplay.crossOrigin = "anonymous";
+            streamDisplay.src = streamUrl;
+        });
+
+        async function readStreamParts(body) {
+            const reader = body.getReader();
+            let buffer   = new Uint8Array(0);
+            const enc    = new TextEncoder();
+            const headerEndSeq = enc.encode("\r\n\r\n");
+
+            try {
+                while (isStreaming) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    // Append received bytes
+                    const tmp = new Uint8Array(buffer.length + value.length);
+                    tmp.set(buffer, 0);
+                    tmp.set(value, buffer.length);
+                    buffer = tmp;
+
+                    // Scan for complete JPEG part
+                    while (true) {
+                        const headerEndIdx = indexOfSeq(buffer, headerEndSeq);
+                        if (headerEndIdx === -1) break;
+
+                        const headerStr = new TextDecoder().decode(buffer.subarray(0, headerEndIdx));
+                        const clMatch   = headerStr.match(/Content-Length:\s*(\d+)/i);
+
+                        let jpegStart = headerEndIdx + 4;
+                        let jpegEnd   = -1;
+
+                        if (clMatch) {
+                            const jpegSize = parseInt(clMatch[1], 10);
+                            jpegEnd = jpegStart + jpegSize;
+                            if (buffer.length < jpegEnd) break; // Need more bytes
+                        } else {
+                            // Find EOI 0xFF, 0xD9
+                            const eoi = findJpegEoi(buffer, jpegStart);
+                            if (eoi === -1) break;
+                            jpegEnd = eoi + 2;
+                        }
+
+                        // Complete JPEG frame arrived!
+                        const now = performance.now();
+                        frameCount++;
+                        fpsWindowCount++;
+                        valTotalFrames.textContent = frameCount;
+
+                        let delta = 0;
+                        if (lastFrameTime > 0) {
+                            delta = Math.round(now - lastFrameTime);
+                            valLastDelta.textContent = `${delta} ms`;
+
+                            if (delta > maxDeltaSeen) {
+                                maxDeltaSeen = delta;
+                                valMaxDelta.textContent = `${maxDeltaSeen} ms`;
+                            }
+                            if (delta >= 500) {
+                                freezeCount++;
+                                valFreezeCount.textContent = freezeCount;
+                                valLastDelta.className = "stat-value spike";
+                            } else {
+                                valLastDelta.className = "stat-value good";
+                            }
+
+                            rollingDeltas.push(delta);
+                            if (rollingDeltas.length > 30) rollingDeltas.shift();
+                            const avg = Math.round(rollingDeltas.reduce((a, b) => a + b, 0) / rollingDeltas.length);
+                            valAvgDelta.textContent = `${avg} ms`;
+
+                            logInterval(frameCount, delta, (jpegEnd - jpegStart));
+                        } else {
+                            logInterval(frameCount, 0, (jpegEnd - jpegStart));
+                        }
+                        lastFrameTime = now;
+
+                        // Display frame on screen
+                        const frameBytes = buffer.slice(jpegStart, jpegEnd);
+                        buffer = buffer.slice(jpegEnd);
+
+                        const blob = new Blob([frameBytes], { type: "image/jpeg" });
+                        const url  = URL.createObjectURL(blob);
+                        const oldUrl = streamDisplay.src;
+                        streamDisplay.onload = () => {
+                            if (streamDisplay.naturalWidth) {
+                                resolutionBadge.textContent = `${streamDisplay.naturalWidth} × ${streamDisplay.naturalHeight}`;
+                            }
+                            if (oldUrl && oldUrl.startsWith("blob:")) URL.revokeObjectURL(oldUrl);
+                        };
+                        streamDisplay.src = url;
+                    }
+
+                    // Buffer guard
+                    if (buffer.length > 300000) buffer = new Uint8Array(0);
+                }
+            } catch (err) {
+                if (err.name !== "AbortError") {
+                    setStatus("STREAM DIED: " + err.message, "badge-error");
+                }
+            } finally {
+                stopAll();
+            }
+        }
+
+        // ═════════════════════════════════════════════════════════════════════
+        // TEST MODE 2: Sequential /capture Snapshots (10 frames)
+        // Tests camera capture + single HTTP response isolation
+        // ═════════════════════════════════════════════════════════════════════
+        btnTestCapture.addEventListener("click", async () => {
+            stopAll();
+            const base = cleanUrl(espUrlInput.value);
+            resetStats();
+
+            setStatus("TESTING /capture...", "badge-active");
+            btnConnectStream.disabled = true;
+            btnTestCapture.disabled   = true;
+            btnStop.disabled          = false;
+            isStreaming = true;
+
+            noStreamMsg.style.display   = "none";
+            streamDisplay.style.display = "block";
+
+            logInterval(0, 0); // Header divider
+            const startAll = performance.now();
+
+            for (let i = 1; i <= 10; i++) {
+                if (!isStreaming) break;
+                const t0 = performance.now();
+                try {
+                    const res = await fetch(`${base}/capture?t=${Date.now()}`, { cache: "no-store", mode: "cors" });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const blob = await res.blob();
+                    const roundTripMs = Math.round(performance.now() - t0);
+
+                    frameCount++;
+                    valTotalFrames.textContent = frameCount;
+                    valLastDelta.textContent   = `${roundTripMs} ms`;
+                    valLastDelta.className     = roundTripMs >= 500 ? "stat-value spike" : "stat-value good";
+
+                    if (roundTripMs > maxDeltaSeen) {
+                        maxDeltaSeen = roundTripMs;
+                        valMaxDelta.textContent = `${maxDeltaSeen} ms`;
+                    }
+                    if (roundTripMs >= 500) {
+                        freezeCount++;
+                        valFreezeCount.textContent = freezeCount;
+                    }
+
+                    rollingDeltas.push(roundTripMs);
+                    const avg = Math.round(rollingDeltas.reduce((a, b) => a + b, 0) / rollingDeltas.length);
+                    valAvgDelta.textContent = `${avg} ms`;
+
+                    logInterval(i, roundTripMs, blob.size);
+
+                    const oldUrl = streamDisplay.src;
+                    streamDisplay.src = URL.createObjectURL(blob);
+                    if (oldUrl && oldUrl.startsWith("blob:")) URL.revokeObjectURL(oldUrl);
+
+                } catch (e) {
+                    logInterval(i, 9999, 0);
+                    setStatus("FAIL ON FRAME #" + i, "badge-error");
+                    break;
+                }
+            }
+
+            const totalTime = Math.round(performance.now() - startAll);
+            const avgFps = (frameCount / (totalTime / 1000)).toFixed(1);
+            valFps.textContent = avgFps;
+            setStatus(`CAPTURE TEST COMPLETE (${frameCount}/10 frames in ${totalTime}ms)`, "badge-active");
+            stopAll(false);
+        });
+
+        // ═════════════════════════════════════════════════════════════════════
+        // TEST MODE 3: Layer 1 Standalone Capture Benchmark (100 Frames)
+        // Requests /test_capture which captures 100 frames on-chip with NO send
+        // ═════════════════════════════════════════════════════════════════════
+        btnLayer1Test.addEventListener("click", async () => {
+            stopAll();
+            const base = cleanUrl(espUrlInput.value);
+            resetStats();
+            setStatus("RUNNING LAYER 1 BENCHMARK (100 FRAMES)...", "badge-active");
+            btnConnectStream.disabled = true;
+            btnTestCapture.disabled   = true;
+            btnLayer1Test.disabled    = true;
+
+            const t0 = performance.now();
+            try {
+                const res = await fetch(`${base}/test_capture`, { cache: "no-store", mode: "cors" });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                const elapsedTotal = Math.round(performance.now() - t0);
+
+                valTotalFrames.textContent = data.frames;
+                valAvgDelta.textContent    = `${data.avg_capture_ms} ms`;
+                valLastDelta.textContent   = `Min: ${data.min_ms} ms`;
+                valMaxDelta.textContent    = `Max: ${data.max_ms} ms`;
+                valFps.textContent         = (1000 / data.avg_capture_ms).toFixed(1);
+
+                logInterval(0, 0);
+                const summaryLine = document.createElement("div");
+                summaryLine.className = "log-line fast";
+                summaryLine.innerHTML = `<strong>[LAYER 1 BENCHMARK RESULT]</strong><span>Avg: ${data.avg_capture_ms}ms | Min: ${data.min_ms}ms | Max: ${data.max_ms}ms</span>`;
+                intervalsLog.appendChild(summaryLine);
+
+                setStatus(`LAYER 1 COMPLETE: Avg Capture = ${data.avg_capture_ms}ms (Max = ${data.max_ms}ms)`, "badge-active");
+            } catch (err) {
+                setStatus("LAYER 1 BENCHMARK FAILED: " + err.message, "badge-error");
+            } finally {
+                btnConnectStream.disabled = false;
+                btnTestCapture.disabled   = false;
+                btnLayer1Test.disabled    = false;
+            }
+        });
+
+        // ─── Stop Controls ────────────────────────────────────────────────────
+        btnStop.addEventListener("click", () => stopAll(true));
+
+        function stopAll(manual = false) {
+            isStreaming = false;
+            if (streamAbortCtrl) {
+                streamAbortCtrl.abort();
+                streamAbortCtrl = null;
+            }
+            btnConnectStream.disabled = false;
+            btnTestCapture.disabled   = false;
+            btnStop.disabled          = true;
+
+            if (manual) {
+                setStatus("STOPPED", "badge-idle");
+                streamDisplay.onload = null;
+                streamDisplay.onerror = null;
+                streamDisplay.style.display = "none";
+                noStreamMsg.style.display   = "block";
+                if (streamDisplay.src.startsWith("blob:")) URL.revokeObjectURL(streamDisplay.src);
+                streamDisplay.src = "";
+            }
+        }
+
+        btnClearLog.addEventListener("click", () => {
+            intervalsLog.innerHTML = "";
+            logCountLabel.textContent = "0 entries";
+        });
+
+        // ─── Binary Helpers ───────────────────────────────────────────────────
+        function indexOfSeq(haystack, needle) {
+            outer: for (let i = 0; i <= haystack.length - needle.length; i++) {
+                for (let j = 0; j < needle.length; j++) {
+                    if (haystack[i + j] !== needle[j]) continue outer;
+                }
+                return i;
+            }
+            return -1;
+        }
+
+        function findJpegEoi(buffer, start) {
+            for (let i = start; i < buffer.length - 1; i++) {
+                if (buffer[i] === 0xFF && buffer[i + 1] === 0xD9) return i;
+            }
+            return -1;
+        }
+    </script>
+</body>
+</html>
